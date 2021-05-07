@@ -177,6 +177,10 @@ public:
         };
         return ::make_shared<sasl_wrapper>(_authenticator->new_sasl_challenge());
     }
+
+    virtual void set_authenticator_config(authenticator_config& authenticator_config) override {
+        return _authenticator->set_authenticator_config(authenticator_config);
+    }
 };
 
 class transitional_authorizer : public authorizer {

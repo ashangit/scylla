@@ -96,6 +96,8 @@ public:
     virtual ::shared_ptr<sasl_challenge> new_sasl_challenge() const override {
         throw std::runtime_error("Should not reach");
     }
+
+    virtual void set_authenticator_config(authenticator_config& authenticator_config) override {}
 };
 
 }

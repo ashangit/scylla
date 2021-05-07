@@ -93,6 +93,8 @@ public:
 
     virtual ::shared_ptr<sasl_challenge> new_sasl_challenge() const override;
 
+    virtual void set_authenticator_config(authenticator_config& authenticator_config) override {}
+
 private:
     bool legacy_metadata_exists() const;
 

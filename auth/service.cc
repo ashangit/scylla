@@ -115,7 +115,8 @@ service::service(
         ::service::migration_notifier& mn,
         std::unique_ptr<authorizer> z,
         std::unique_ptr<authenticator> a,
-        std::unique_ptr<role_manager> r)
+        std::unique_ptr<role_manager> r,
+        authenticator_config& authenticator_config)
             : _permissions_cache_config(std::move(c))
             , _permissions_cache(nullptr)
             , _qp(qp)
@@ -123,22 +124,27 @@ service::service(
             , _authorizer(std::move(z))
             , _authenticator(std::move(a))
             , _role_manager(std::move(r))
-            , _migration_listener(std::make_unique<auth_migration_listener>(*_authorizer)) {}
+            , _migration_listener(std::make_unique<auth_migration_listener>(*_authorizer)) {
+    // Must be set before starting to use the authenticator or it could leads to config unavailability
+    // when executing start or authenticate methods
+    _authenticator->set_authenticator_config(authenticator_config);
+}
 
 service::service(
         permissions_cache_config c,
         cql3::query_processor& qp,
         ::service::migration_notifier& mn,
         ::service::migration_manager& mm,
-        const service_config& sc)
+        const service_config& sc,
+        authenticator_config& authenticator_config)
             : service(
                       std::move(c),
                       qp,
                       mn,
                       create_object<authorizer>(sc.authorizer_java_name, qp, mm),
                       create_object<authenticator>(sc.authenticator_java_name, qp, mm),
-                      create_object<role_manager>(sc.role_manager_java_name, qp, mm)) {
-}
+                      create_object<role_manager>(sc.role_manager_java_name, qp, mm),
+                      authenticator_config) {}
 
 future<> service::create_keyspace_if_missing(::service::migration_manager& mm) const {
     auto& db = _qp.db();

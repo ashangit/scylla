@@ -104,7 +104,8 @@ public:
             ::service::migration_notifier&,
             std::unique_ptr<authorizer>,
             std::unique_ptr<authenticator>,
-            std::unique_ptr<role_manager>);
+            std::unique_ptr<role_manager>,
+            authenticator_config& authenticator_config);
 
     ///
     /// This constructor is intended to be used when the class is sharded via \ref seastar::sharded. In that case, the
@@ -116,7 +117,8 @@ public:
             cql3::query_processor&,
             ::service::migration_notifier&,
             ::service::migration_manager&,
-            const service_config&);
+            const service_config&,
+            authenticator_config& authenticator_config);
 
     future<> start(::service::migration_manager&);
 

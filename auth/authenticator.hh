@@ -68,6 +68,13 @@ namespace auth {
 
 class authenticated_user;
 
+struct authenticator_config {
+    sstring rest_authenticator_endpoint_host;
+    uint16_t rest_authenticator_endpoint_port;
+    sstring rest_authenticator_endpoint_cafile_path;
+    uint32_t rest_authenticator_endpoint_ttl;
+};
+
 ///
 /// Abstract client for authenticating role identity.
 ///
@@ -151,6 +158,8 @@ public:
     virtual const resource_set& protected_resources() const = 0;
 
     virtual ::shared_ptr<sasl_challenge> new_sasl_challenge() const = 0;
+
+    virtual void set_authenticator_config(authenticator_config& authenticator_config) = 0;
 };
 
 }
