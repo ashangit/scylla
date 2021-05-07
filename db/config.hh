@@ -341,6 +341,12 @@ public:
     named_value<uint16_t> redis_database_count;
     named_value<string_map> redis_keyspace_replication_strategy_options;
 
+    named_value<sstring> rest_authenticator_endpoint_host;
+    named_value<uint16_t> rest_authenticator_endpoint_port;
+    named_value<sstring> rest_authenticator_endpoint_cafile_path;
+    named_value<uint32_t> rest_authenticator_endpoint_ttl;
+    named_value<uint32_t> rest_authenticator_endpoint_timeout;
+
     seastar::logging_settings logging_settings(const boost::program_options::variables_map&) const;
 
     const db::extensions& extensions() const;

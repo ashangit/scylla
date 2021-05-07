@@ -116,7 +116,8 @@ public:
             cql3::query_processor&,
             ::service::migration_notifier&,
             ::service::migration_manager&,
-            const service_config&);
+            const service_config&,
+            authenticator_config);
 
     future<> start(::service::migration_manager&);
 

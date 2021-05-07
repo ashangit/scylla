@@ -33,6 +33,7 @@ static const class_registrator<
         authenticator,
         allow_all_authenticator,
         cql3::query_processor&,
-        ::service::migration_manager&> registration("org.apache.cassandra.auth.AllowAllAuthenticator");
+        ::service::migration_manager&,
+        authenticator_config> registration("org.apache.cassandra.auth.AllowAllAuthenticator");
 
 }

@@ -63,7 +63,7 @@ class password_authenticator : public authenticator {
 public:
     static db::consistency_level consistency_for_user(std::string_view role_name);
 
-    password_authenticator(cql3::query_processor&, ::service::migration_manager&);
+    password_authenticator(cql3::query_processor&, ::service::migration_manager&, authenticator_config);
 
     ~password_authenticator();
 

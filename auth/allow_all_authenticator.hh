@@ -41,7 +41,7 @@ extern const std::string_view allow_all_authenticator_name;
 
 class allow_all_authenticator final : public authenticator {
 public:
-    allow_all_authenticator(cql3::query_processor&, ::service::migration_manager&) {
+    allow_all_authenticator(cql3::query_processor&, ::service::migration_manager&, authenticator_config) {
     }
 
     virtual future<> start() override {

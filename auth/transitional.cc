@@ -67,8 +67,8 @@ class transitional_authenticator : public authenticator {
 public:
     static const sstring PASSWORD_AUTHENTICATOR_NAME;
 
-    transitional_authenticator(cql3::query_processor& qp, ::service::migration_manager& mm)
-            : transitional_authenticator(std::make_unique<password_authenticator>(qp, mm)) {
+    transitional_authenticator(cql3::query_processor& qp, ::service::migration_manager& mm, authenticator_config ac)
+            : transitional_authenticator(std::make_unique<password_authenticator>(qp, mm, ac)) {
     }
     transitional_authenticator(std::unique_ptr<authenticator> a)
             : _authenticator(std::move(a)) {
@@ -252,7 +252,8 @@ static const class_registrator<
         auth::authenticator,
         auth::transitional_authenticator,
         cql3::query_processor&,
-        ::service::migration_manager&> transitional_authenticator_reg(auth::PACKAGE_NAME + "TransitionalAuthenticator");
+        ::service::migration_manager&,
+        auth::authenticator_config> transitional_authenticator_reg(auth::PACKAGE_NAME + "TransitionalAuthenticator");
 
 static const class_registrator<
         auth::authorizer,

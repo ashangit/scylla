@@ -68,6 +68,14 @@ namespace auth {
 
 class authenticated_user;
 
+struct authenticator_config {
+    sstring rest_authenticator_endpoint_host;
+    uint16_t rest_authenticator_endpoint_port;
+    sstring rest_authenticator_endpoint_cafile_path;
+    uint32_t rest_authenticator_endpoint_ttl;
+    uint32_t rest_authenticator_endpoint_timeout;
+};
+
 ///
 /// Abstract client for authenticating role identity.
 ///

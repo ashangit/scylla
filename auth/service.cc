@@ -130,15 +130,15 @@ service::service(
         cql3::query_processor& qp,
         ::service::migration_notifier& mn,
         ::service::migration_manager& mm,
-        const service_config& sc)
+        const service_config& sc,
+        authenticator_config ac)
             : service(
                       std::move(c),
                       qp,
                       mn,
                       create_object<authorizer>(sc.authorizer_java_name, qp, mm),
-                      create_object<authenticator>(sc.authenticator_java_name, qp, mm),
-                      create_object<role_manager>(sc.role_manager_java_name, qp, mm)) {
-}
+                      create_object<authenticator>(sc.authenticator_java_name, qp, mm, std::move(ac)),
+                      create_object<role_manager>(sc.role_manager_java_name, qp, mm)) {}
 
 future<> service::create_keyspace_if_missing(::service::migration_manager& mm) const {
     auto& db = _qp.db();

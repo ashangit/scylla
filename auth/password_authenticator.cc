@@ -76,14 +76,15 @@ static const class_registrator<
         authenticator,
         password_authenticator,
         cql3::query_processor&,
-        ::service::migration_manager&> password_auth_reg("org.apache.cassandra.auth.PasswordAuthenticator");
+        ::service::migration_manager&,
+        authenticator_config> password_auth_reg("org.apache.cassandra.auth.PasswordAuthenticator");
 
 static thread_local auto rng_for_salt = std::default_random_engine(std::random_device{}());
 
 password_authenticator::~password_authenticator() {
 }
 
-password_authenticator::password_authenticator(cql3::query_processor& qp, ::service::migration_manager& mm)
+password_authenticator::password_authenticator(cql3::query_processor& qp, ::service::migration_manager& mm, authenticator_config ac)
     : _qp(qp)
     , _migration_manager(mm)
     , _stopped(make_ready_future<>()) {
