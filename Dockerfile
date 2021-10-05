@@ -18,8 +18,16 @@ ENV container docker
 RUN yum -y install epel-release && \
     yum -y clean expire-cache && \
     yum -y update && \
-    yum -y install hostname supervisor java-1.8.0-openjdk perf elfutils file gdb && \
+    yum -y install hostname supervisor java-1.8.0-openjdk perf elfutils file  && \
+    yum -y install gcc make texinfo gcc-c++ flex bison python-devel libiptcdata-devel libbabeltrace-devel mpfr-devel expat-devel && \
     yum clean all
+
+RUN curl -O https://ftp.gnu.org/gnu/gdb/gdb-10.2.tar.gz && \
+    tar xvfz gdb-10.2.tar.gz && \
+    cd gdb-10.2 && \
+    ./configure --disable-werror && \
+    make && \
+    make install
 
 ARG VERSION=4.4.5-criteo1
 ARG DOCKER_DIST_DIR=/tmp/scylla-source/scylla-scylla-$VERSION/dist/docker/redhat
@@ -62,12 +70,15 @@ RUN cd / && \
     curl -O https://raw.githubusercontent.com/scylladb/seastar/master/scripts/addr2line.py && \
     chmod 755 /seastar-addr2line
 
-#RUN eu-unstrip /opt/scylladb/libexec/scylla /usr/lib/debug/opt/scylladb/libexec/scylla-4.4.5-0.20211005.4b9cfb9a4.x86_64.debug && \
+# file /opt/scylladb/libexec/scylla to get ID which is the path
+#RUN ID=$(file /opt/scylladb/libexec/scylla |cut -d= -f2|cut -d, -f1| cut -c -2) && \
+#    FNAME=$(file /opt/scylladb/libexec/scylla |cut -d= -f2|cut -d, -f1| cut -c 3-) && \
+#    eu-unstrip /opt/scylladb/libexec/scylla /usr/lib/debug/.build-id/$ID/$FNAME.debug && \
 #    rm /opt/scylladb/libexec/scylla && \
 #    ln -s /usr/lib/debug/opt/scylladb/libexec/scylla-4.4.5-0.20211005.4b9cfb9a4.x86_64.debug /opt/scylladb/libexec/scylla && \
 #    chmod 755 /usr/lib/debug/opt/scylladb/libexec/scylla-4.4.5-0.20211005.4b9cfb9a4.x86_64.debug
 
-ENV PATH /opt/scylladb/python3/bin:$PATH
+ENV PATH /opt/scylladb/python3/bin:/usr/local/bin:$PATH
 ENTRYPOINT ["/docker-entrypoint.py"]
 
 EXPOSE 10000 9042 9160 9180 7000 7001 7192
