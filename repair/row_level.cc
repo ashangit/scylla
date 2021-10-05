@@ -2825,12 +2825,14 @@ public:
                 parallel_for_each(master.all_nodes(), [&, this] (repair_node_state& ns) {
                     const auto& node = ns.node;
                     rlogger.trace("Get repair_set_estimated_partitions for node={}, estimated_partitions={}", node, _estimated_partitions);
-                    ns.state = repair_state::set_estimated_partitions_started;
-                    return master.repair_set_estimated_partitions(node, _estimated_partitions).then([&ns] {
+                        ns.state = repair_state::set_estimated_partitions_started;
+                        return master.repair_set_estimated_partitions(node, _estimated_partitions).then([&ns] {
                         ns.state = repair_state::set_estimated_partitions_finished;
                     });
                 }).get();
 
+                rlogger.info("NICO: repair id {} on shard {}, keyspace={}, cf={}, range={}",
+                             _ri.id, this_shard_id(), _ri.keyspace, _cf_name, _range);
                 while (true) {
                     auto status = negotiate_sync_boundary(master);
                     if (status == op_status::next_round) {
@@ -2838,11 +2840,19 @@ public:
                     } else if (status == op_status::all_done) {
                         break;
                     }
+                    rlogger.info("NICO b_get_missing: repair id {} on shard {}, keyspace={}, cf={}, range={}",
+                                 _ri.id, this_shard_id(), _ri.keyspace, _cf_name, _range);
                     status = get_missing_rows_from_follower_nodes(master);
+                    rlogger.info("NICO get_missing: repair id {} on shard {}, keyspace={}, cf={}, range={}",
+                                 _ri.id, this_shard_id(), _ri.keyspace, _cf_name, _range);
                     if (status == op_status::next_round) {
                         continue;
                     }
+                    rlogger.info("NICO b_send_missing: repair id {} on shard {}, keyspace={}, cf={}, range={}",
+                                 _ri.id, this_shard_id(), _ri.keyspace, _cf_name, _range);
                     send_missing_rows_to_follower_nodes(master);
+                    rlogger.info("NICO send_missing: repair id {} on shard {}, keyspace={}, cf={}, range={}",
+                                 _ri.id, this_shard_id(), _ri.keyspace, _cf_name, _range);
                 }
             } catch (no_such_column_family& e) {
                 table_dropped = true;

@@ -75,6 +75,22 @@ SEASTAR_THREAD_TEST_CASE(test_empty_index) {
   }).get();
 }
 
+SEASTAR_THREAD_TEST_CASE(test_biggraphite) {
+    sstables::test_env::do_with_async([&] (sstables::test_env& env) {
+        auto s = schema_builder("test_ks", "test_table")
+                .with_column("pk", int32_type, column_kind::partition_key)
+                .with_column("ck", int32_type, column_kind::clustering_key)
+                .with_column("val", int32_type)
+                .set_compressor_params(compression_parameters::no_compression())
+                .build();
+        sstable_ptr sstp = env.reusable_sst(s, "test/resource/sstables/biggraphite", 109202, sstable_version_types::md).get0();
+        sstp->load().get();
+        auto fut = sstables::test(sstp).read_indexes();
+        BOOST_REQUIRE_EXCEPTION(fut.get(), malformed_sstable_exception, exception_predicate::message_equals(
+                "missing index entry in sstable test/resource/sstables/biggraphite/md-109202-big-Index.db"));
+    }).get();
+}
+
 SEASTAR_THREAD_TEST_CASE(missing_column_in_schema) {
     schema_ptr s = schema_builder("test_ks", "test_table")
                        .with_column("key1", utf8_type, column_kind::partition_key)
