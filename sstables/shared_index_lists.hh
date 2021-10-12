@@ -70,18 +70,6 @@ public:
     //
     // The loader object does not survive deferring, so the caller must deal with its liveness.
     template<typename Loader>
-    future<list_ptr> load(const key_type& key, Loader&& loader) {
-        return _lists.load(key, std::forward<Loader>(loader));
-    }
-
-    // Returns a future which resolves with a shared pointer to index_list for given key.
-    // Always returns a valid pointer if succeeds. The pointer is never invalidated externally.
-    //
-    // If entry is missing, the loader is invoked. If list is already loading, this invocation
-    // will wait for prior loading to complete and use its result when it's done.
-    //
-    // The loader object does not survive deferring, so the caller must deal with its liveness.
-    template<typename Loader>
     future<list_ptr> get_or_load(const key_type& key, Loader&& loader) {
         return _lists.get_or_load(key, std::forward<Loader>(loader));
     }

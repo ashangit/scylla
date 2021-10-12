@@ -30,8 +30,6 @@
 #include "tracing/traced_file.hh"
 #include "sstables/scanning_clustered_index_cursor.hh"
 #include "sstables/mx/bsearch_clustered_cursor.hh"
-#include <sys/stat.h>
-#include <boost/stacktrace.hpp>
 
 namespace sstables {
 
@@ -227,7 +225,7 @@ public:
         case state::CONSUME_ENTRY: {
             auto promoted_index_start = current_pos();
             auto promoted_index_size = _promoted_index_end - promoted_index_start;
-            //sstlog.trace("{}: pos {} state {} size {}", fmt::ptr(this), current_pos(), state::CONSUME_ENTRY, promoted_index_size);
+            sstlog.trace("{}: pos {} state {} size {}", fmt::ptr(this), current_pos(), state::CONSUME_ENTRY, promoted_index_size);
             if (_deletion_time) {
                 _num_pi_blocks = get_uint32();
             }
@@ -291,10 +289,6 @@ public:
         , _use_binary_search(is_mc_format() && use_binary_search_in_promoted_index)
         , _trace_state(std::move(trace_state))
     {}
-
-    //void display() {
-    //    sstlog.info("_entry_offset {} _promoted_index_end {} _position {} _partition_header_length {} this->_remain {}", _entry_offset, _promoted_index_end, _position, _partition_header_length, this->_remain);
-    //}
 
     void reset(uint64_t offset) {
         _state = state::START;
@@ -426,6 +420,7 @@ private:
 
     // Must be called for non-decreasing summary_idx.
     future<> advance_to_page(index_bound& bound, uint64_t summary_idx) {
+        sstlog.trace("index {}: advance_to_page({}), bound {}", fmt::ptr(this), summary_idx, fmt::ptr(&bound));
         assert(!bound.current_list || bound.current_summary_idx <= summary_idx);
         if (bound.current_list && bound.current_summary_idx == summary_idx) {
             sstlog.trace("index {}: same page", fmt::ptr(this));
@@ -451,39 +446,16 @@ private:
                 end = summary.entries[summary_idx + 1].position;
             }
 
-            //sstlog.info("file {}: quantity {}, position {} - end {}", _sstable->filename(component_type::Index), quantity, position, end);
             return do_with(std::make_unique<reader>(_sstable, _permit, _pc, _trace_state, position, end, quantity), [this, summary_idx] (auto& entries_reader) {
-                // index_consumer _consumer;
-                // index_consume_entry_context<index_consumer> _context;
-
-                //  consumer.hh
-                //  input_stream<char> _input;
-                //     future<> consume_input() {
-                //        return _input.consume(state_processor());
-                //    }
-                // StateProcessor& state_processor() {
-                //        return static_cast<StateProcessor&>(*this);
-                //    };
-                //sstlog.info("Loader called for {} : {}", _sstable->filename(component_type::Index), summary_idx);
-                //entries_reader->_context.display();
-                //entries_reader->_context.reset(position);
-                //entries_reader->_context.display();
                 return entries_reader->_context.consume_input().then_wrapped([this, summary_idx, &entries_reader] (future<> f) {
-                    //entries_reader->_context.display();
-                    //sstlog.info("Loader called for2");
                     std::exception_ptr ex;
                     if (f.failed()) {
                         ex = f.get_exception();
                         sstlog.error("failed reading index for {}: {}", _sstable->get_filename(), ex);
                     }
                     auto indexes = std::move(entries_reader->_consumer.indexes);
-                    //     future<> close() {
-                    //        return _input.close();
-                    //    }
                     return entries_reader->_context.close().then([indexes = std::move(indexes), ex = std::move(ex)] () mutable {
-                        //sstlog.info("Loader called for3");
                         if (ex) {
-                            //sstlog.error("ex for {}", ex);
                             return do_with(std::move(indexes), [ex = std::move(ex)] (index_list& indexes) mutable {
                                 return parallel_for_each(indexes, [] (index_entry& ie) mutable {
                                     return ie.close_pi_stream();
@@ -500,64 +472,7 @@ private:
             });
         };
 
-//        struct stat st;
-//            if(stat(_sstable->filename(component_type::Index).c_str(), &st) == 0) {
-//                sstlog.info("summary_idx for {}: {}, size {} - st_mtime {}", _sstable->filename(component_type::Index), summary_idx, st.st_size, st.st_mtime);
-//            }else{
-//                sstlog.info("summary_idx for {}: {} - not able to stat", _sstable->filename(component_type::Index), summary_idx);
-//            };
-        return _index_lists.get_or_load(summary_idx, loader)
-        //.then([this, &bound, summary_idx] (shared_index_lists::list_ptr ref) {
-        //    if (ref->empty()) {
-        //        sstlog.info("ref empty");
-
-        //        auto loader2 = [this] (uint64_t summary_idx) -> future<index_list> {
-//                    auto& summary = _sstable->get_summary();
-//                    uint64_t position = summary.entries[summary_idx].position;
-//                    uint64_t quantity = downsampling::get_effective_index_interval_after_index(summary_idx, summary.header.sampling_level,
-//                                                                                               summary.header.min_index_interval);
-//
-//                    uint64_t end;
-//                    if (summary_idx + 1 >= summary.header.size) {
-//                        end = _sstable->index_size();
-//                    } else {
-//                        end = summary.entries[summary_idx + 1].position;
-//                    }
-//
-//                    return do_with(std::make_unique<reader>(_sstable, _permit, _pc, _trace_state, position, end, quantity), [this, summary_idx] (auto& entries_reader) {
-//                        sstlog.info("Loader called for {} : {}", _sstable->filename(component_type::Index), summary_idx);
-//                        return entries_reader->_context.consume_input().then_wrapped([this, summary_idx, &entries_reader] (future<> f) {
-//                            std::exception_ptr ex;
-//                            if (f.failed()) {
-//                                ex = f.get_exception();
-//                                sstlog.error("failed reading index for {}: {}", _sstable->get_filename(), ex);
-//                            }
-//                            auto indexes = std::move(entries_reader->_consumer.indexes);
-//                            return entries_reader->_context.close().then([indexes = std::move(indexes), ex = std::move(ex)] () mutable {
-//                                if (ex) {
-//                                    return do_with(std::move(indexes), [ex = std::move(ex)] (index_list& indexes) mutable {
-//                                        return parallel_for_each(indexes, [] (index_entry& ie) mutable {
-//                                            return ie.close_pi_stream();
-//                                        }).then_wrapped([ex = std::move(ex)] (future<>&& fut) mutable {
-//                                            fut.ignore_ready_future();
-//                                            return make_exception_future<index_list>(std::move(ex));
-//                                        });
-//                                    });
-//                                }
-//                                return make_ready_future<index_list>(std::move(indexes));
-//                            });
-//
-//                        });
-//                    });
-//                };
-//
-        //         return _index_lists.load(summary_idx, loader2).get0();
-        //     }else{
-        //        return ref;
-        //    }
-
-        // })
-        .then([this, &bound, summary_idx] (shared_index_lists::list_ptr ref) {
+        return _index_lists.get_or_load(summary_idx, loader).then([this, &bound, summary_idx] (shared_index_lists::list_ptr ref) {
             // to make sure list is not closed when another bound is still using it, index list will only be closed when there's only one owner holding it
             if (bound.current_list && bound.current_list.use_count() == 1) {
                 // a new background close will only be initiated when previous ones terminate, so as to limit the concurrency.
@@ -573,22 +488,7 @@ private:
             bound.current_index_idx = 0;
             bound.current_pi_idx = 0;
             if (bound.current_list->empty()) {
-                auto& summary = _sstable->get_summary();
-                uint64_t position = summary.entries[summary_idx].position;
-                uint64_t end;
-                if (summary_idx + 1 >= summary.header.size) {
-                    end = _sstable->index_size();
-                } else {
-                    end = summary.entries[summary_idx + 1].position;
-                }
-                sstlog.info("ERROR: {}, summary_idx {}, position {}, end {}", _sstable->filename(component_type::Index), summary_idx, position, end);
-                std::cout << boost::stacktrace::stacktrace();
-                 try {
-                seastar::throw_with_backtrace<std::runtime_error>(format("missing index entry in sstable {}", _sstable->filename(component_type::Index)));
-                 } catch (std::exception& e) {
-                     sstlog.warn("{}: {}",  _sstable->filename(component_type::Index), e);
-                            throw malformed_sstable_exception("missing index entry", _sstable->filename(component_type::Index));
-                        }
+                throw malformed_sstable_exception("missing index entry", _sstable->filename(component_type::Index));
             }
             bound.data_file_position = (*bound.current_list)[0].position();
             bound.element = indexable_element::partition;

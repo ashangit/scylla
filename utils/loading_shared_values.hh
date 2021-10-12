@@ -31,7 +31,6 @@
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/lambda/bind.hpp>
 #include "seastarx.hh"
-#include "log.hh"
 
 namespace bi = boost::intrusive;
 
@@ -65,8 +64,6 @@ public:
     using key_type = Key;
     using value_type = Tp;
     static constexpr size_t initial_buckets_count = InitialBucketsCount;
-
-    //static logging::logger _logger;
 
 private:
     class entry : public bi::unordered_set_base_hook<bi::store_hash<true>>, public enable_lw_shared_from_this<entry> {
@@ -211,55 +208,6 @@ public:
          assert(!_set.size());
     }
 
-
-
-    /// \brief
-    /// Returns a future which resolves with a shared pointer to the entry for the given key.
-    /// Always returns a valid pointer if succeeds.
-    ///
-    /// If entry is missing, the loader is invoked. If entry is already loading, this invocation
-    /// will wait for prior loading to complete and use its result when it's done.
-    ///
-    /// The loader object does not survive deferring, so the caller must deal with its liveness.
-    template<typename Loader>
-    future<entry_ptr> load(const key_type& key, Loader&& loader) noexcept {
-        static_assert(std::is_same<future<value_type>, typename futurize<std::result_of_t<Loader(const key_type&)>>::type>::value, "Bad Loader signature");
-        try {
-            //auto i = _set.find(key, Hash(), key_eq<key_type, EqualPred>());
-            lw_shared_ptr<entry> e;
-            future<> f = make_ready_future<>();
-            //_logger.info("key {} not found in cache", key);
-            Stats::inc_misses();
-            e = make_lw_shared<entry>(*this, key);
-            //rehash_before_insert();
-            //_set.insert(*e);
-            // get_shared_future() may throw, so make sure to call it before invoking the loader(key)
-            f = e->loaded().get_shared_future();
-            // Future indirectly forwarded to `e`.
-            (void)futurize_invoke([&] { return loader(key); }).then_wrapped([e](future<value_type>&& val_fut) mutable {
-                if (val_fut.failed()) {
-                    e->loaded().set_exception(val_fut.get_exception());
-                } else {
-                    e->set_value(val_fut.get0());
-                    e->loaded().set_value();
-                }
-            });
-            if (!f.available()) {
-                Stats::inc_blocks();
-                return f.then([e]() mutable {
-                    return entry_ptr(std::move(e));
-                });
-            } else if (f.failed()) {
-                return make_exception_future<entry_ptr>(std::move(f).get_exception());
-            } else {
-                Stats::inc_hits();
-                return make_ready_future<entry_ptr>(entry_ptr(std::move(e)));
-            }
-        } catch (...) {
-            return make_exception_future<entry_ptr>(std::current_exception());
-        }
-    }
-
     /// \brief
     /// Returns a future which resolves with a shared pointer to the entry for the given key.
     /// Always returns a valid pointer if succeeds.
@@ -276,7 +224,6 @@ public:
             lw_shared_ptr<entry> e;
             future<> f = make_ready_future<>();
             if (i != _set.end()) {
-                //_logger.info("key {} found in cache", key);
                 e = i->shared_from_this();
                 // take a short cut if the value is ready
                 if (e->ready()) {
@@ -285,7 +232,6 @@ public:
                 }
                 f = e->loaded().get_shared_future();
             } else {
-                //_logger.info("key {} not found in cache", key);
                 Stats::inc_misses();
                 e = make_lw_shared<entry>(*this, key);
                 rehash_before_insert();
@@ -389,6 +335,4 @@ private:
     }
 };
 
-
-//logging::logger utils::loading_shared_values::_logger("utils");
 }

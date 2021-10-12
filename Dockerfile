@@ -19,7 +19,7 @@ RUN yum -y install epel-release && \
     yum -y clean expire-cache && \
     yum -y update && \
     yum -y install hostname supervisor java-1.8.0-openjdk perf elfutils file  && \
-    yum -y install gcc make texinfo gcc-c++ flex bison python-devel libiptcdata-devel libbabeltrace-devel mpfr-devel expat-devel && \
+    yum -y install gcc make texinfo gcc-c++ flex bison python-devel libiptcdata-devel libbabeltrace-devel mpfr-devel expat-devel xz-devel && \
     yum clean all
 
 RUN curl -O https://ftp.gnu.org/gnu/gdb/gdb-10.2.tar.gz && \
@@ -53,7 +53,7 @@ RUN mkdir -p /tmp/scylla-source && \
     rm -R /tmp/scylla-source
 
 # Install Scylla:
-COPY scylladb-4.4.5.16.tar.gz /tmp/scylladb.tar.gz
+COPY scylladb-4.4.5.17.tar.gz /tmp/scylladb.tar.gz
 RUN mkdir -p /tmp/scylla-rpms && \
     tar -xf /tmp/scylladb.tar.gz -C /tmp/scylla-rpms && \
     rm /tmp/scylladb.tar.gz && \
@@ -64,6 +64,8 @@ RUN mkdir -p /tmp/scylla-rpms && \
 COPY cassandra_exporter.conf /etc/supervisord.conf.d/cassandra_exporter.conf
 COPY cassandra_exporter.jar /cassandra_exporter.jar
 COPY scylla-server.conf /etc/supervisord.conf.d/scylla-server.conf
+
+COPY .gdbinit /root/.gdbinit
 
 RUN cd / && \
     curl -O https://raw.githubusercontent.com/scylladb/seastar/master/scripts/seastar-addr2line && \

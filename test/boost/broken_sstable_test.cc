@@ -83,11 +83,11 @@ SEASTAR_THREAD_TEST_CASE(test_biggraphite) {
                 .with_column("val", int32_type)
                 .set_compressor_params(compression_parameters::no_compression())
                 .build();
-        sstable_ptr sstp = env.reusable_sst(s, "test/resource/sstables/biggraphite", 109202, sstable_version_types::md).get0();
+        sstable_ptr sstp = env.reusable_sst(s, "test/resource/sstables/biggraphite", 201173, sstable_version_types::md).get0();
         sstp->load().get();
         auto fut = sstables::test(sstp).read_indexes();
         BOOST_REQUIRE_EXCEPTION(fut.get(), malformed_sstable_exception, exception_predicate::message_equals(
-                "missing index entry in sstable test/resource/sstables/biggraphite/md-109202-big-Index.db"));
+                "missing index entry in sstable test/resource/sstables/biggraphite/md-201173-big-Index.db"));
     }).get();
 }
 
