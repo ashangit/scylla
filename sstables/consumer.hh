@@ -444,6 +444,7 @@ public:
                 assert(data.size() == 0);
                 return proceed::yes;
             }
+            // NICO
             auto ret = state_processor().process_state(data);
             if (__builtin_expect(ret != proceed::yes, 0)) {
                 return ret;

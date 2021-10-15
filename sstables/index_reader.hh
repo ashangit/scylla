@@ -134,6 +134,10 @@ public:
         return ((_state == state::CONSUME_ENTRY) || (_state == state::START));
     }
 
+    void display() {
+        sstlog.info("_file_name {} _entry_offset {} _promoted_index_end {} _position {} _partition_header_length {} this->_remain {}", _file_name, _entry_offset, _promoted_index_end, _position, _partition_header_length, this->_remain);
+    }
+
     processing_result process_state(temporary_buffer<char>& data) {
         auto current_pos = [&] { return this->position() - data.size(); };
         auto read_vint_or_uint64 = [this] (temporary_buffer<char>& data) {
@@ -146,6 +150,8 @@ public:
             return is_mc_format() ? static_cast<uint32_t>(this->_u64) : this->_u32;
         };
 
+        sstlog.info("process_state {}: {}: pos {}", _file_name, fmt::ptr(this), current_pos());
+
         switch (_state) {
         // START comes first, to make the handling of the 0-quantity case simpler
         case state::START:
@@ -153,33 +159,35 @@ public:
             _state = state::KEY_SIZE;
             break;
         case state::KEY_SIZE:
-            sstlog.trace("{}: pos {} state {}", fmt::ptr(this), current_pos(), state::KEY_SIZE);
+            sstlog.info("{}: {}: pos {} state {}", _file_name, fmt::ptr(this), current_pos(), state::KEY_SIZE);
             _entry_offset = current_pos();
             if (this->read_16(data) != continuous_data_consumer::read_status::ready) {
                 _state = state::KEY_BYTES;
                 break;
             }
         case state::KEY_BYTES:
-            sstlog.trace("{}: pos {} state {}", fmt::ptr(this), current_pos(), state::KEY_BYTES);
+            sstlog.info("{}: {}: pos {} state {}", _file_name, fmt::ptr(this), current_pos(), state::KEY_BYTES);
             if (this->read_bytes(data, this->_u16, _key) != continuous_data_consumer::read_status::ready) {
+                sstlog.info("AFTER READ {}: {}: pos {} state {}", _file_name, fmt::ptr(this), current_pos(), state::KEY_BYTES);
+                std::abort();
                 _state = state::POSITION;
                 break;
             }
         case state::POSITION:
-            sstlog.trace("{}: pos {} state {}", fmt::ptr(this), current_pos(), state::POSITION);
+            sstlog.info("{}: {}: pos {} state {}", _file_name,fmt::ptr(this), current_pos(), state::POSITION);
             if (read_vint_or_uint64(data) != continuous_data_consumer::read_status::ready) {
                 _state = state::PROMOTED_SIZE;
                 break;
             }
         case state::PROMOTED_SIZE:
-            sstlog.trace("{}: pos {} state {}", fmt::ptr(this), current_pos(), state::PROMOTED_SIZE);
+            sstlog.trace("{}: {}: pos {} state {}", _file_name, fmt::ptr(this), current_pos(), state::PROMOTED_SIZE);
             _position = this->_u64;
             if (read_vint_or_uint32(data) != continuous_data_consumer::read_status::ready) {
                 _state = state::PARTITION_HEADER_LENGTH_1;
                 break;
             }
         case state::PARTITION_HEADER_LENGTH_1: {
-            sstlog.trace("{}: pos {} state {}", fmt::ptr(this), current_pos(), state::PARTITION_HEADER_LENGTH_1);
+            sstlog.trace("{}: {}: pos {} state {}", _file_name, fmt::ptr(this), current_pos(), state::PARTITION_HEADER_LENGTH_1);
             auto promoted_index_size_with_header = get_uint32();
             _promoted_index_end = current_pos() + promoted_index_size_with_header;
             if (promoted_index_size_with_header == 0) {
@@ -215,7 +223,7 @@ public:
                 break;
             }
         case state::NUM_PROMOTED_INDEX_BLOCKS:
-            sstlog.trace("{}: pos {} state {}", fmt::ptr(this), current_pos(), state::NUM_PROMOTED_INDEX_BLOCKS);
+            sstlog.info("{}: {}: pos {} state {}", _file_name, fmt::ptr(this), current_pos(), state::NUM_PROMOTED_INDEX_BLOCKS);
             _deletion_time->marked_for_delete_at = this->_u64;
             if (read_vint_or_uint32(data) != continuous_data_consumer::read_status::ready) {
                 _state = state::CONSUME_ENTRY;
@@ -225,7 +233,7 @@ public:
         case state::CONSUME_ENTRY: {
             auto promoted_index_start = current_pos();
             auto promoted_index_size = _promoted_index_end - promoted_index_start;
-            sstlog.trace("{}: pos {} state {} size {}", fmt::ptr(this), current_pos(), state::CONSUME_ENTRY, promoted_index_size);
+            sstlog.trace("{}: {}: pos {} state {} size {}", _file_name, fmt::ptr(this), current_pos(), state::CONSUME_ENTRY, promoted_index_size);
             if (_deletion_time) {
                 _num_pi_blocks = get_uint32();
             }
@@ -394,7 +402,7 @@ class index_reader {
             : _consumer(quantity)
             , _context(permit, _consumer,
                        trust_promoted_index(sst->has_correct_promoted_index_entries()), *sst->_schema,
-                       trace_state ? sst->filename(component_type::Index) : sstring(),
+                       sst->filename(component_type::Index),
                        get_file(*sst, permit, trace_state),
                        get_file_input_stream_options(sst, pc), begin, end - begin,
                        (sst->get_version() >= sstable_version_types::mc
@@ -447,6 +455,7 @@ private:
             }
 
             return do_with(std::make_unique<reader>(_sstable, _permit, _pc, _trace_state, position, end, quantity), [this, summary_idx] (auto& entries_reader) {
+                entries_reader->_context.display();
                 return entries_reader->_context.consume_input().then_wrapped([this, summary_idx, &entries_reader] (future<> f) {
                     std::exception_ptr ex;
                     if (f.failed()) {
@@ -454,6 +463,10 @@ private:
                         sstlog.error("failed reading index for {}: {}", _sstable->get_filename(), ex);
                     }
                     auto indexes = std::move(entries_reader->_consumer.indexes);
+                    if (indexes.empty()) {
+                        sstlog.info("Empty index entries {}", _sstable->get_filename());
+                    }
+                    entries_reader->_context.display();
                     return entries_reader->_context.close().then([indexes = std::move(indexes), ex = std::move(ex)] () mutable {
                         if (ex) {
                             return do_with(std::move(indexes), [ex = std::move(ex)] (index_list& indexes) mutable {

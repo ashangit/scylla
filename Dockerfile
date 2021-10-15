@@ -53,7 +53,7 @@ RUN mkdir -p /tmp/scylla-source && \
     rm -R /tmp/scylla-source
 
 # Install Scylla:
-COPY scylladb-4.4.5.17.tar.gz /tmp/scylladb.tar.gz
+COPY scylladb-4.4.5.18.tar.gz /tmp/scylladb.tar.gz
 RUN mkdir -p /tmp/scylla-rpms && \
     tar -xf /tmp/scylladb.tar.gz -C /tmp/scylla-rpms && \
     rm /tmp/scylladb.tar.gz && \
