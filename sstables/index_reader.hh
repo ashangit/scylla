@@ -488,7 +488,7 @@ private:
             bound.current_index_idx = 0;
             bound.current_pi_idx = 0;
             if (bound.current_list->empty()) {
-                throw malformed_sstable_exception("missing index entry", _sstable->filename(component_type::Index));
+                throw malformed_sstable_exception(format("missing index entry for bound {}, summary_idx {}", fmt::ptr(&bound), summary_idx), _sstable->filename(component_type::Index));
             }
             bound.data_file_position = (*bound.current_list)[0].position();
             bound.element = indexable_element::partition;
