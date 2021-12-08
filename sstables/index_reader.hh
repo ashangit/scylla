@@ -433,7 +433,7 @@ private:
             advance_to_end(bound);
             return make_ready_future<>();
         }
-        auto loader = [this] (uint64_t summary_idx) -> future<index_list> {
+        auto loader = [this, &bound] (uint64_t summary_idx) -> future<index_list> {
             auto& summary = _sstable->get_summary();
             uint64_t position = summary.entries[summary_idx].position;
             uint64_t quantity = downsampling::get_effective_index_interval_after_index(summary_idx, summary.header.sampling_level,
@@ -446,14 +446,16 @@ private:
                 end = summary.entries[summary_idx + 1].position;
             }
 
-            return do_with(std::make_unique<reader>(_sstable, _permit, _pc, _trace_state, position, end, quantity), [this, summary_idx] (auto& entries_reader) {
-                return entries_reader->_context.consume_input().then_wrapped([this, summary_idx, &entries_reader] (future<> f) {
+            return do_with(std::make_unique<reader>(_sstable, _permit, _pc, _trace_state, position, end, quantity), [this, &bound, summary_idx] (auto& entries_reader) {
+                sstlog.trace("index {}: loader() for bound {}: reader={}, context={}", fmt::ptr(this), fmt::ptr(&bound), fmt::ptr(&entries_reader), fmt::ptr(&entries_reader->_context));
+                return entries_reader->_context.consume_input().then_wrapped([this, &bound, summary_idx, &entries_reader] (future<> f) {
                     std::exception_ptr ex;
                     if (f.failed()) {
                         ex = f.get_exception();
                         sstlog.error("failed reading index for {}: {}", _sstable->get_filename(), ex);
                     }
                     auto indexes = std::move(entries_reader->_consumer.indexes);
+                    sstlog.trace("index {}: loader() for bound {}: done parsing, entries={}", fmt::ptr(this), fmt::ptr(&bound), indexes.size());
                     return entries_reader->_context.close().then([indexes = std::move(indexes), ex = std::move(ex)] () mutable {
                         if (ex) {
                             return do_with(std::move(indexes), [ex = std::move(ex)] (index_list& indexes) mutable {
